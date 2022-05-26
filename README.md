@@ -4,7 +4,7 @@
 
 ## Why
 
-Sometimes, bundlers are a bit too much. They have a lot of configuration and the output they produce is sometimes unnecessary. For example, when you're building an embedded application in CEF or in Electron, you know for a fact that latest js features are supported. This is a tool that will build your dependencies for svelte and produce browser-friendly imports: `import { onMount } from "svelte"` becomes `import { onMount } from "../modules/svelte/index.mjs"`.
+Sometimes, bundlers are a bit too much. They have a lot of configuration and the output they produce is sometimes unnecessary. For example, when you're building an embedded application in CEF or in Electron, you know for a fact that the latest js features are supported. This is a tool that will build your dependencies for svelte and produce browser-friendly imports: `import { onMount } from "svelte"` becomes `import { onMount } from "../modules/svelte/index.mjs"`.
 
 This tool is **not** for making web apps. For that, use `SvelteKit` or a bundler.
 
