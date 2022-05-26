@@ -1,0 +1,36 @@
+{
+  "name": "svbuild",
+  "version": "1.0.0",
+  "description": "A simple tool that builds your svelte files without bundling them.",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "type": "module",
+  "keywords": [
+    "svelte", "bundler", "build", "compiler"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "acorn": "^8.7.1",
+    "chokidar": "^3.5.3",
+    "commander": "^9.2.0",
+    "fs-extra": "^10.1.0",
+    "svelte": "^3.46.4"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^9.0.13"
+  },
+  "exports": {
+    ".": "./dist/compile.js",
+    "./config": "./dist/config.js",
+    "./resolve": "./dist/resolve.js"
+  },
+  "bin": {
+    "svbuild": "dist/main.js"
+  },
+  "files": [
+    "dist"
+  ]
+}

@@ -1,0 +1,76 @@
+import * as _fs from "fs-extra";
+import * as pt from "path";
+const fs = _fs.default;
+export function prepareJSPath(path) {
+    path = path.replaceAll('\\', '/');
+    if (path.endsWith('.svelte'))
+        path = path + '.js';
+    if (!path.startsWith('.') || !path.startsWith('/') || !path.includes('://')) {
+        path = './' + path;
+    }
+    return path;
+}
+export function resolveImport(dep, initialPath, relativePath) {
+    let firstSegment = dep.split('/')[0];
+    let stripped = dep.replace(firstSegment, '').slice(1); // slice(1) removes the slash
+    let package_json;
+    try {
+        package_json = JSON.parse(fs.readFileSync(pt.join(config.moduleOptions.modulesSrc, firstSegment, 'package.json'), 'utf-8'));
+    }
+    catch (e) {
+        console.error(`[BUILD ERROR] Unable to resolve "${dep}". Check if you have the dependency installed.\n  Error:`, e);
+        return initialPath;
+    }
+    if (firstSegment == dep) {
+        let { main, module: _module, exports: _exports } = package_json;
+        if (!_exports || typeof _exports != 'object') {
+            return prepareJSPath(pt.join(initialPath, _module || main || 'index.js'));
+        }
+        let exportedMod_any = _exports['.'];
+        let exportedMod;
+        if (typeof exportedMod_any == 'string') {
+            exportedMod = exportedMod_any;
+        }
+        else {
+            exportedMod = exportedMod_any.import;
+        }
+        let final = exportedMod ? pt.join(relativePath, exportedMod) : pt.join(initialPath, _module || main || 'index.js');
+        return prepareJSPath(final);
+    }
+    else {
+        let index = 'index.js';
+        let { exports: _exports } = package_json;
+        if (!_exports || typeof _exports != 'object') {
+            return prepareJSPath(pt.join(initialPath, index));
+        }
+        let normalized = pt.normalize(stripped).replaceAll('\\', '/');
+        let exportedMod_any = _exports[normalized] || _exports['./' + normalized];
+        let exportedMod;
+        if (exportedMod_any == undefined) {
+            let separated = stripped.split('/');
+            let prevSegments = [];
+            for (const segment of separated) {
+                let joined = prevSegments.join('/');
+                let normalized = pt.normalize((joined ? (joined + '/') : '') + stripped).replaceAll('\\', '/');
+                exportedMod_any =
+                    _exports[normalized] ||
+                        _exports['./' + normalized];
+                if (exportedMod_any) {
+                    break;
+                }
+                prevSegments.push(segment);
+            }
+        }
+        if (typeof exportedMod_any == 'string') {
+            exportedMod = exportedMod_any;
+        }
+        else if (exportedMod_any == undefined) {
+            console.error(`Unable to find exports for "${dep}". Using "${pt.join(initialPath, index)}"`);
+        }
+        else {
+            exportedMod = exportedMod_any.import;
+        }
+        let final = exportedMod ? pt.join(relativePath, exportedMod) : pt.join(initialPath, index);
+        return prepareJSPath(final);
+    }
+}
