@@ -28,7 +28,7 @@
     "./resolve": "./dist/resolve.js"
   },
   "bin": {
-    "svbuild": "dist/main.js"
+    "svbuild": "./dist/main.js"
   },
   "files": [
     "dist"

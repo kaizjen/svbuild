@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { program } from "commander";
 import type { Config } from "../config";
 import { build, buildAll, compilationMap, includeBuiltModules } from "./compile.js";

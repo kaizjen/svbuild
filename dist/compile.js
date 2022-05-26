@@ -100,7 +100,7 @@ export async function compile(from, to) {
         console.warn(`[WARNING] in "${from}" (${w.start.line}:${w.start.column})\n ${w.frame.replaceAll('\n', '\n ')}`);
     });
     let { code } = compiled.js;
-    if (config.moduleOptions?.compileModules) {
+    if (config.moduleOptions?.buildModules) {
         code = await modImports(to, code);
     }
     void async function writeCompiled() {
@@ -151,7 +151,7 @@ function analyseAndResolve(path, dep) {
     }
     let relativePathToMod = pt.join(root, firstSegment);
     let prePath = prepareJSPath(pt.join(relativePathToMod, stripped));
-    if (config.moduleOptions.compileModules && !alreadyBuilt.includes(firstSegment)) {
+    if (config.moduleOptions.buildModules && !alreadyBuilt.includes(firstSegment)) {
         try {
             buildAll(firstSegment, config.moduleOptions.root, true).then(() => alreadyBuilt.push(firstSegment));
         }

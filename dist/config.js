@@ -9,7 +9,7 @@ export const defaultConfig = {
     },
     moduleOptions: {
         root: "modules",
-        compileModules: false,
+        buildModules: false,
         modulesSrc: 'node_modules',
         buildSvelte: false
     }

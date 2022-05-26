@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { program } from "commander";
 import { build, buildAll, compilationMap, includeBuiltModules } from "./compile.js";
 import { defaultConfig, importConfig, logger } from "./config.js";
@@ -40,8 +41,8 @@ program.command("watch").description("Watches the src directory for changes")
     .option("-v, --verbose", "Log internal information")
     .action(async ({ src, out, config: cPath, verbose, build: shouldBuild }) => {
     await importConfig(cPath);
-    out = config.out || out;
-    src = config.src || src;
+    out = out || config.out;
+    src = src || config.src;
     config.compilerOptions ||= Object.assign(defaultConfig.compilerOptions, config.compilerOptions);
     if (config.moduleOptions) {
         config.moduleOptions = Object.assign(defaultConfig.moduleOptions, config.moduleOptions);
@@ -51,7 +52,7 @@ program.command("watch").description("Watches the src directory for changes")
         console.error(`Directories "out" and/or "src" are not specified.`);
         process.exit(1);
     }
-    if (config.compilerOptions?.esm == false && config.moduleOptions) {
+    if (!(config.compilerOptions?.esm) && config.moduleOptions) {
         console.error(`compilerOptions.esm cannot be %o with config.moduleOptions`, false);
         process.exit(1);
     }
