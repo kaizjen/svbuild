@@ -6,7 +6,7 @@
 
 Sometimes, bundlers are a bit too much. They have a lot of configuration and the output they produce is sometimes unnecessary. For example, when you're building an embedded application in CEF or in Electron, you know for a fact that the latest js features are supported. This is a tool that will build your dependencies for svelte and produce browser-friendly imports: `import { onMount } from "svelte"` becomes `import { onMount } from "../modules/svelte/index.mjs"`.
 
-This tool is **not** for making web apps. For that, use `SvelteKit` or a bundler.
+This tool is **not** for making websites. For that, use `SvelteKit` or a bundler.
 
 ## Getting started
 
@@ -16,7 +16,7 @@ This tool is **not** for making web apps. For that, use `SvelteKit` or a bundler
 
 - In the root of this folder place a `package.json` with `"type": "module"`.
 
-- In the root also create a file called `svlc.config.js`. What to write in it is explained below.
+- In the root also create a file called `svbuild.config.js`. What to write in it is explained below.
 
 - Write your svelte code in the src dir.
 
@@ -26,7 +26,7 @@ This tool is **not** for making web apps. For that, use `SvelteKit` or a bundler
 
 ## Configuration
 
-All configuration is in the `svlc.config.js`.
+All configuration is in the `svbuild.config.js`.
 
 This is the type for the config file:
 

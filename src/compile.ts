@@ -2,7 +2,7 @@ import * as _fs from "fs-extra";
 import * as pt from "path";
 import * as svelte from "svelte/compiler";
 import * as acorn from "acorn";
-import { resolveImport } from "./resolve.js";
+import { prepareJSPath, resolveImport } from "./resolve.js";
 import { logger } from "./config.js";
 
 const fs = (_fs as any).default as typeof _fs
@@ -17,15 +17,6 @@ export function includeBuiltModules(modDir: string) {
     alreadyBuilt.push(...entries)
 
   } catch (_) {}
-}
-
-function prepareJSPath(path: string) {
-  path = path.replaceAll('\\', '/');
-  if (path.endsWith('.svelte')) path = path + '.js';
-  if (!path.startsWith('.') || !path.startsWith('/') || !path.includes('://')) {
-    path = './' + path
-  }
-  return path;
 }
 
 
@@ -60,7 +51,7 @@ export async function buildAll(dep: string, to: string, isDependency?: boolean) 
 }
 
 export async function build(dir: (from: string, to: string) => any, enPath: string, destPath: string, onError: (e: Error) => any) {
-  try { 
+  try {
     if ((await fs.lstat(enPath)).isDirectory()) {
       await dir(enPath, destPath)
       compilationMap[pt.normalize(enPath)] = { type: 'dir', path: destPath }
@@ -69,7 +60,7 @@ export async function build(dir: (from: string, to: string) => any, enPath: stri
       await compile(enPath, destPath + '.js')
       compilationMap[pt.normalize(enPath)] = { type: 'svelte', path: destPath }
 
-    } else if (enPath.endsWith('.js')) {
+    } else if (enPath.endsWith('.js') || enPath.endsWith('.mjs')) {
       const code = await modImports(destPath, await fs.readFile(enPath, 'utf-8'));
       await fs.ensureFile(destPath);
       await fs.writeFile(destPath, code);
@@ -99,7 +90,7 @@ export async function compile(from: string, to: string) {
       format: config.compilerOptions.esm ? 'esm' : 'cjs',
       filename: pt.basename(from),
       dev: config.compilerOptions.dev,
-      sveltePath: config.moduleOptions ? 'svelte' : config.compilerOptions.sveltePath // sveltePath is handled by svlc
+      sveltePath: config.moduleOptions ? 'svelte' : config.compilerOptions.sveltePath // sveltePath is handled by svbuild
     });
 
   } catch ({ code, start, end, frame }) {
@@ -124,10 +115,12 @@ export async function compile(from: string, to: string) {
 }
 
 export async function modImports(resolveFrom: string, code: string) {
-  const { body } = acorn.parse(code, { ecmaVersion: 'latest', sourceType: 'module' }) as any;
+  const { body } = acorn.parse(code, { ecmaVersion: 'latest', sourceType: 'module' }) as any; // as any because typescript goes nuts
 
-  let addLength = 0;
+  let shiftBy = 0;
   for (const node of body) {
+    // maybe should switch to recast (or magic-string) instead of this 
+    // also it would make it easier to plug it into the preprocessor instead of post-processing
     if (node.type != 'ImportDeclaration' && (node.type != 'ExportNamedDeclaration' || node.source == null)) continue;
     
     const { source } = node;
@@ -147,17 +140,19 @@ export async function modImports(resolveFrom: string, code: string) {
 
     logger("Converted:", modPath, "->", fixedString)
 
-    let cut = code.slice(source.start + addLength - 5, source.end + addLength + 5);
+    // actually no idea why 5 characters
+    let cut = code.slice(source.start + shiftBy - 5, source.end + shiftBy + 5);
     let newCut = cut.replace(source.raw, `"${fixedString.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll("'", "\\'")}"`);
 
     code = code.replace(cut, newCut)
 
-    addLength += newCut.length - cut.length;
+    shiftBy += newCut.length - cut.length;
   }
 
   return code;
 }
 
+/** makes all imports relative */
 function analyseAndResolve(path: string, dep: string) {
   logger(`Analysing "${dep}" from "${path}"`);
 

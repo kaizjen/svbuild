@@ -68,7 +68,7 @@ export function resolveImport(dep: string, initialPath: string, relativePath: st
         exportedMod_any =
           _exports[normalized] ||
           _exports['./' + normalized]
-          ;
+        ;
 
         if (exportedMod_any) {
           break;
@@ -82,7 +82,7 @@ export function resolveImport(dep: string, initialPath: string, relativePath: st
       exportedMod = exportedMod_any;
 
     } else if (exportedMod_any == undefined) {
-      console.error(`Unable to find exports for "${dep}". Using "${pt.join(initialPath, index)}"`);
+      console.error(`[BUILD ERROR] Unable to find exports for "${dep}". Using "${pt.join(initialPath, index)}"`);
 
     } else {
       exportedMod = exportedMod_any.import

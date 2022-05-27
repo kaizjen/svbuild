@@ -6,7 +6,7 @@ import * as chokidar from "chokidar";
 import * as pt from "path";
 import * as _fs from "fs-extra";
 const fs = _fs.default;
-program.option("-s, --src <path>", "Compile files from this directory")
+program.name("svbuild").option("-s, --src <path>", "Compile files from this directory")
     .option("-o, --out <path>", "Compile files to this directory")
     .option("-c, --config <path>", "Path to the configuration file")
     .option("-v, --verbose", "Log internal information")

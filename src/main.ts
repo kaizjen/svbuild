@@ -14,7 +14,7 @@ declare global {
   var verbose: boolean
 }
 
-program.option("-s, --src <path>", "Compile files from this directory")
+program.name("svbuild").option("-s, --src <path>", "Compile files from this directory")
   .option("-o, --out <path>", "Compile files to this directory")
   .option("-c, --config <path>", "Path to the configuration file")
   .option("-v, --verbose", "Log internal information")

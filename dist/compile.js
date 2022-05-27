@@ -15,6 +15,7 @@ export function includeBuiltModules(modDir) {
     catch (_) { }
 }
 function prepareJSPath(path) {
+    // make the path import-friendly
     path = path.replaceAll('\\', '/');
     if (path.endsWith('.svelte'))
         path = path + '.js';
@@ -61,7 +62,7 @@ export async function build(dir, enPath, destPath, onError) {
             await compile(enPath, destPath + '.js');
             compilationMap[pt.normalize(enPath)] = { type: 'svelte', path: destPath };
         }
-        else if (enPath.endsWith('.js')) {
+        else if (enPath.endsWith('.js') || enPath.endsWith('.mjs')) {
             const code = await modImports(destPath, await fs.readFile(enPath, 'utf-8'));
             await fs.ensureFile(destPath);
             await fs.writeFile(destPath, code);
@@ -89,7 +90,7 @@ export async function compile(from, to) {
             format: config.compilerOptions.esm ? 'esm' : 'cjs',
             filename: pt.basename(from),
             dev: config.compilerOptions.dev,
-            sveltePath: config.moduleOptions ? 'svelte' : config.compilerOptions.sveltePath // sveltePath is handled by svlc
+            sveltePath: config.moduleOptions ? 'svelte' : config.compilerOptions.sveltePath // sveltePath is handled by svbuild
         });
     }
     catch ({ code, start, end, frame }) {
@@ -109,8 +110,8 @@ export async function compile(from, to) {
     }();
 }
 export async function modImports(resolveFrom, code) {
-    const { body } = acorn.parse(code, { ecmaVersion: 'latest', sourceType: 'module' });
-    let addLength = 0;
+    const { body } = acorn.parse(code, { ecmaVersion: 'latest', sourceType: 'module' }); // as any because typescript goes nuts
+    let shiftBy = 0;
     for (const node of body) {
         if (node.type != 'ImportDeclaration' && (node.type != 'ExportNamedDeclaration' || node.source == null))
             continue;
@@ -127,10 +128,10 @@ export async function modImports(resolveFrom, code) {
             fixedString = analyseAndResolve(pt.dirname(resolveFrom), modPath);
         }
         logger("Converted:", modPath, "->", fixedString);
-        let cut = code.slice(source.start + addLength - 5, source.end + addLength + 5);
+        let cut = code.slice(source.start + shiftBy - 5, source.end + shiftBy + 5);
         let newCut = cut.replace(source.raw, `"${fixedString.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll("'", "\\'")}"`);
         code = code.replace(cut, newCut);
-        addLength += newCut.length - cut.length;
+        shiftBy += newCut.length - cut.length;
     }
     return code;
 }

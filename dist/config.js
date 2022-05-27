@@ -14,7 +14,7 @@ export const defaultConfig = {
         buildSvelte: false
     }
 };
-export async function importConfig(path = './svlc.config.js') {
+export async function importConfig(path = './svbuild.config.js') {
     path = pt.resolve(path);
     try {
         let c = await import('file:///' + path.replaceAll('\\', '/'));

@@ -17,7 +17,7 @@ export const defaultConfig: Config = {
   }
 }
 
-export async function importConfig(path: string = './svlc.config.js') {
+export async function importConfig(path: string = './svbuild.config.js') {
   path = pt.resolve(path)
   
   try {
