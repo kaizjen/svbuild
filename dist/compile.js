@@ -2,7 +2,7 @@ import * as _fs from "fs-extra";
 import * as pt from "path";
 import * as svelte from "svelte/compiler";
 import * as acorn from "acorn";
-import { resolveImport } from "./resolve.js";
+import { prepareJSPath, resolveImport } from "./resolve.js";
 import { logger } from "./config.js";
 const fs = _fs.default;
 export const compilationMap = {};
@@ -13,16 +13,6 @@ export function includeBuiltModules(modDir) {
         alreadyBuilt.push(...entries);
     }
     catch (_) { }
-}
-function prepareJSPath(path) {
-    // make the path import-friendly
-    path = path.replaceAll('\\', '/');
-    if (path.endsWith('.svelte'))
-        path = path + '.js';
-    if (!path.startsWith('.') || !path.startsWith('/') || !path.includes('://')) {
-        path = './' + path;
-    }
-    return path;
 }
 export async function buildAll(dep, to, isDependency) {
     async function dir(path, to) {
@@ -113,13 +103,15 @@ export async function modImports(resolveFrom, code) {
     const { body } = acorn.parse(code, { ecmaVersion: 'latest', sourceType: 'module' }); // as any because typescript goes nuts
     let shiftBy = 0;
     for (const node of body) {
+        // maybe should switch to recast (or magic-string) instead of this 
+        // also it would make it easier to plug it into the preprocessor instead of post-processing
         if (node.type != 'ImportDeclaration' && (node.type != 'ExportNamedDeclaration' || node.source == null))
             continue;
         const { source } = node;
         let modPath = source.value;
         let fixedString;
         if (modPath.startsWith('.') || modPath.startsWith('/') || modPath.includes('://')) {
-            if (!modPath.endsWith('.js')) {
+            if (!modPath.endsWith('.js') && !modPath.endsWith('.mjs')) {
                 modPath += '.js';
             }
             fixedString = modPath;
@@ -128,6 +120,7 @@ export async function modImports(resolveFrom, code) {
             fixedString = analyseAndResolve(pt.dirname(resolveFrom), modPath);
         }
         logger("Converted:", modPath, "->", fixedString);
+        // actually no idea why 5 characters
         let cut = code.slice(source.start + shiftBy - 5, source.end + shiftBy + 5);
         let newCut = cut.replace(source.raw, `"${fixedString.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll("'", "\\'")}"`);
         code = code.replace(cut, newCut);
@@ -135,6 +128,7 @@ export async function modImports(resolveFrom, code) {
     }
     return code;
 }
+/** makes all imports relative */
 function analyseAndResolve(path, dep) {
     logger(`Analysing "${dep}" from "${path}"`);
     if (!config.moduleOptions?.root)

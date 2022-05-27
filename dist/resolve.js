@@ -65,7 +65,7 @@ export function resolveImport(dep, initialPath, relativePath) {
             exportedMod = exportedMod_any;
         }
         else if (exportedMod_any == undefined) {
-            console.error(`Unable to find exports for "${dep}". Using "${pt.join(initialPath, index)}"`);
+            console.error(`[BUILD ERROR] Unable to find exports for "${dep}". Using "${pt.join(initialPath, index)}"`);
         }
         else {
             exportedMod = exportedMod_any.import;

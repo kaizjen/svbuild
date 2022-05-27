@@ -128,7 +128,7 @@ export async function modImports(resolveFrom: string, code: string) {
     let modPath = source.value as string;
     let fixedString: string;
     if (modPath.startsWith('.') || modPath.startsWith('/') || modPath.includes('://')) {
-      if (!modPath.endsWith('.js')) {
+      if (!modPath.endsWith('.js') && !modPath.endsWith('.mjs')) {
         modPath += '.js';
       }
       fixedString = modPath;

@@ -5,7 +5,7 @@
 </script>
 
 {#if name}
-	<h1> Heaveno and badbye, {name} </h1>
+	<h1> Hello, {name} </h1>
 {:else}
 	<h1>Hello, stranger</h1>
 {/if}
