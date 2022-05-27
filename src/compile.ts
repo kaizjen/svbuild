@@ -2,7 +2,7 @@ import * as _fs from "fs-extra";
 import * as pt from "path";
 import * as svelte from "svelte/compiler";
 import * as acorn from "acorn";
-import { prepareJSPath, resolveImport } from "./resolve.js";
+import { betterJoin, prepareJSPath, resolveImport } from "./resolve.js";
 import { logger } from "./config.js";
 
 const fs = (_fs as any).default as typeof _fs
@@ -31,8 +31,8 @@ export async function buildAll(dep: string, to: string, isDependency?: boolean) 
     }
 
     for (const en of entries) {
-      const enPath = pt.join(path, en)
-      const destPath = pt.join(to, en)
+      const enPath = betterJoin(path, en)
+      const destPath = betterJoin(to, en)
       build(dir, enPath, destPath, (e) => {
         console.error(`[BUILD ERROR] Unable to build dependency "${dep}". \n  Error:`, e)
       })
@@ -40,9 +40,9 @@ export async function buildAll(dep: string, to: string, isDependency?: boolean) 
   }
   if (isDependency) {
     let initialDep = dep;
-    dep = pt.join(config.moduleOptions.modulesSrc, dep);
+    dep = betterJoin(config.moduleOptions.modulesSrc, dep);
     logger("Building dependency %o, path: %o", initialDep, dep)
-    await dir(dep, pt.join(to, initialDep))
+    await dir(dep, betterJoin(to, initialDep))
     
   } else {
     logger("Compiling all from %o to %o", dep, to)
@@ -165,16 +165,16 @@ function analyseAndResolve(path: string, dep: string) {
   
   if (!config.moduleOptions.buildSvelte) {
     if (firstSegment == 'svelte') {
-      if (pt.extname(stripped) == '') stripped = pt.join(stripped, 'index.mjs')
+      if (pt.extname(stripped) == '') stripped = betterJoin(stripped, 'index.mjs')
 
-      logger('Imported svelte module:', pt.join(config.compilerOptions.sveltePath, stripped));
-      return prepareJSPath(pt.join(config.compilerOptions.sveltePath, stripped))
+      logger('Imported svelte module:', betterJoin(config.compilerOptions.sveltePath, stripped));
+      return prepareJSPath(betterJoin(config.compilerOptions.sveltePath, stripped))
     }
   }
 
-  let relativePathToMod = pt.join(root, firstSegment);
+  let relativePathToMod = betterJoin(root, firstSegment);
 
-  let prePath = prepareJSPath(pt.join(relativePathToMod, stripped));
+  let prePath = prepareJSPath(betterJoin(relativePathToMod, stripped));
 
   if (config.moduleOptions.buildModules && !alreadyBuilt.includes(firstSegment)) {
     try {

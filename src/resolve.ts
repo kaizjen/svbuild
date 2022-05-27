@@ -1,15 +1,22 @@
 import * as _fs from "fs-extra";
 import * as pt from "path";
+import urlJoin from "url-join";
 
 const fs = (_fs as any).default as typeof _fs
 
 export function prepareJSPath(path: string) {
   path = path.replaceAll('\\', '/');
   if (path.endsWith('.svelte')) path = path + '.js';
-  if (!path.startsWith('.') || !path.startsWith('/') || !path.includes('://')) {
+  if (!path.startsWith('.') && !path.startsWith('/') && !path.includes('://')) {
     path = './' + path
   }
   return path;
+}
+
+/** Joiner that supports URLs */
+export function betterJoin(segment1: string, ...paths: string[]) {
+  paths = paths.map(p => pt.normalize(p)).filter(p => p != '/'); // don't normalize the 1st segment that contains the url
+  return urlJoin(segment1, ...paths)
 }
 
 export function resolveImport(dep: string, initialPath: string, relativePath: string) {

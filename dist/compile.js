@@ -2,7 +2,7 @@ import * as _fs from "fs-extra";
 import * as pt from "path";
 import * as svelte from "svelte/compiler";
 import * as acorn from "acorn";
-import { prepareJSPath, resolveImport } from "./resolve.js";
+import { betterJoin, prepareJSPath, resolveImport } from "./resolve.js";
 import { logger } from "./config.js";
 const fs = _fs.default;
 export const compilationMap = {};
@@ -24,8 +24,8 @@ export async function buildAll(dep, to, isDependency) {
             console.error(`[BUILD ERROR] Can't get the source of dependency "${dep}" (folder "${path}"). Check if you have it installed in modulesSrc.\nError:`, e);
         }
         for (const en of entries) {
-            const enPath = pt.join(path, en);
-            const destPath = pt.join(to, en);
+            const enPath = betterJoin(path, en);
+            const destPath = betterJoin(to, en);
             build(dir, enPath, destPath, (e) => {
                 console.error(`[BUILD ERROR] Unable to build dependency "${dep}". \n  Error:`, e);
             });
@@ -33,9 +33,9 @@ export async function buildAll(dep, to, isDependency) {
     }
     if (isDependency) {
         let initialDep = dep;
-        dep = pt.join(config.moduleOptions.modulesSrc, dep);
+        dep = betterJoin(config.moduleOptions.modulesSrc, dep);
         logger("Building dependency %o, path: %o", initialDep, dep);
-        await dir(dep, pt.join(to, initialDep));
+        await dir(dep, betterJoin(to, initialDep));
     }
     else {
         logger("Compiling all from %o to %o", dep, to);
@@ -139,13 +139,13 @@ function analyseAndResolve(path, dep) {
     if (!config.moduleOptions.buildSvelte) {
         if (firstSegment == 'svelte') {
             if (pt.extname(stripped) == '')
-                stripped = pt.join(stripped, 'index.mjs');
-            logger('Imported svelte module:', pt.join(config.compilerOptions.sveltePath, stripped));
-            return prepareJSPath(pt.join(config.compilerOptions.sveltePath, stripped));
+                stripped = betterJoin(stripped, 'index.mjs');
+            logger('Imported svelte module:', betterJoin(config.compilerOptions.sveltePath, stripped));
+            return prepareJSPath(betterJoin(config.compilerOptions.sveltePath, stripped));
         }
     }
-    let relativePathToMod = pt.join(root, firstSegment);
-    let prePath = prepareJSPath(pt.join(relativePathToMod, stripped));
+    let relativePathToMod = betterJoin(root, firstSegment);
+    let prePath = prepareJSPath(betterJoin(relativePathToMod, stripped));
     if (config.moduleOptions.buildModules && !alreadyBuilt.includes(firstSegment)) {
         try {
             buildAll(firstSegment, config.moduleOptions.root, true).then(() => alreadyBuilt.push(firstSegment));
