@@ -1,4 +1,4 @@
-# svbuild
+# svbuild (beta)
 
 >  A simple tool that builds your svelte files without bundling them.
 
@@ -102,7 +102,7 @@ This is how to use the `svbuild` tool
 
 - `-o, --out <path>` - Output, overrides `config.out`
 
-- `-c, --config <path>` - Path to the configuration file
+- `-c, --config <path>` - Path to the configuration file (default: `./svbuild.config.js`)
 
 - `-v, --verbose` - Log internal information
 
@@ -113,6 +113,12 @@ This is how to use the `svbuild` tool
 - `--src, --out, --config, --verbose` is the same as `svbuild`
 
 - `-b, --no-build` - Don't build the project on start.
+
+## Limitations
+
+Currently, svbuild doesn't support preprocessors and source maps. This will probably be implemented in a next major version.
+
+Also note that svbuild is still in beta so it can include bugs. Please report all issues on Github.
 
 
 

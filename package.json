@@ -1,7 +1,7 @@
 {
   "name": "svbuild",
   "version": "1.0.0",
-  "description": "A simple tool that builds your svelte files without bundling them.",
+  "description": "[beta] A simple tool that builds your svelte files without bundling them.",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc"
