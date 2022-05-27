@@ -91,9 +91,7 @@ program.command("watch").description("Watches the src directory for changes")
         let dest = pt.join(out, path);
 
         console.log(`Building`, dest);
-        build((from, to) => {
-          buildAll(from, to)
-        }, from, dest, (e) => {
+        build(buildAll, from, dest, (e) => {
           console.error(`Error while building "${path}" to "${dest}".\nError:`, e)
         })
       });
@@ -134,21 +132,24 @@ program.command("watch").description("Watches the src directory for changes")
   
       watcher.on('change', (path) => {
         if (!path) return;
-        path = pt.join(src, path);
+        let from = pt.join(src, path);
   
-        if (path in compilationMap) {
-          const map = compilationMap[path];
-          logger(`Changing "${map.path}" for "${path}"`);
+        if (from in compilationMap) {
+          const map = compilationMap[from];
+          logger(`Changing "${map.path}" for "${from}"`);
   
           console.log(`Building`, map.path);
-          build((from, to) => {
-            buildAll(from, to)
-          }, path, map.path, (e) => {
-            console.error(`Error while building "${path}" to "${map.path}".\nError:`, e)
+          build(buildAll, from, map.path, (e) => {
+            console.error(`Error while building "${from}" to "${map.path}".\nError:`, e)
           })
           return;
         }
-        logger(`no change for ${path}`);
+        let dest = pt.join(out, path);
+
+        console.log(`Building`, dest);
+        build(buildAll, from, dest, (e) => {
+          console.error(`Error while building "${path}" to "${dest}".\nError:`, e)
+        })
       })
     })
 
