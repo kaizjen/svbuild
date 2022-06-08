@@ -1,5 +1,5 @@
 import * as pt from "path";
-import { Config } from "../config";
+import { Config } from "../types";
 
 export const defaultConfig: Config = {
   src: '',

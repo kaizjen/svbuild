@@ -1,5 +1,5 @@
 /**
- * @type {import('../config').Config}
+ * @type {import('svbuild/types').Config}
  */
 const config = {
   src: './svelte',

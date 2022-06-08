@@ -61,7 +61,7 @@ program.command("watch").description("Watches the src directory for changes")
     }
     const watcher = chokidar.watch('.', { atomic: true, cwd: src, persistent: true });
     watcher.on('ready', () => {
-        console.log('ready', src);
+        console.log('Watching', src);
         watcher.on('add', (path) => {
             let from = pt.join(src, path);
             let dest = pt.join(out, path);
@@ -85,7 +85,8 @@ program.command("watch").description("Watches the src directory for changes")
                 const map = compilationMap[path];
                 logger(`Unlinking "${map.path}" for "${path}"`);
                 console.log(`Removing`, map.path);
-                fs.rmSync(map.path, { recursive: true });
+                fs.rmSync(map.path + (map.type == 'svelte' ? '.js' : ''), { recursive: true });
+                delete compilationMap[path];
                 return;
             }
             logger(`no unlink for ${path}`);

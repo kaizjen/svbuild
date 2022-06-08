@@ -4,7 +4,9 @@ import * as svelte from "svelte/compiler";
 import * as acorn from "acorn";
 import { betterJoin, prepareJSPath, resolveImport } from "./resolve.js";
 import { logger } from "./config.js";
+import c from "chalk";
 const fs = _fs.default;
+const BUILD_ERROR = c.bgRed("[BUILD ERROR]");
 export const compilationMap = {};
 const alreadyBuilt = [];
 export function includeBuiltModules(modDir) {
@@ -21,13 +23,14 @@ export async function buildAll(dep, to, isDependency) {
             entries = await fs.readdir(path);
         }
         catch (e) {
-            console.error(`[BUILD ERROR] Can't get the source of dependency "${dep}" (folder "${path}"). Check if you have it installed in modulesSrc.\nError:`, e);
+            console.error(`${BUILD_ERROR} Can't get the source of dependency "${dep}" (folder "${path}"). Check if you have it installed in modulesSrc.\nError:`, e);
+            return;
         }
         for (const en of entries) {
             const enPath = betterJoin(path, en);
             const destPath = betterJoin(to, en);
             build(dir, enPath, destPath, (e) => {
-                console.error(`[BUILD ERROR] Unable to build dependency "${dep}". \n  Error:`, e);
+                console.error(`${BUILD_ERROR} Unable to build dependency "${dep}". \n  Error:`, e);
             });
         }
     }
@@ -59,7 +62,7 @@ export async function build(dir, enPath, destPath, onError) {
             compilationMap[pt.normalize(enPath)] = { type: 'js', path: destPath };
         }
         else {
-            await fs.copy(enPath, destPath, { recursive: true });
+            await fs.copy(enPath, destPath, { recursive: true, overwrite: false });
             compilationMap[pt.normalize(enPath)] = { type: 'unknown', path: destPath };
         }
     }
@@ -84,11 +87,12 @@ export async function compile(from, to) {
         });
     }
     catch ({ code, start, end, frame }) {
-        console.warn(`[ERROR] in "${from}" (${start.line}:${start.column})\n ${frame.replaceAll('\n', '\n ')}`);
+        console.warn(`${c.red("[ERROR]")} in "${from}" (${start.line}:${start.column})\n ${frame.replaceAll('\n', '\n ')}`);
         return;
     }
     compiled.warnings.forEach(w => {
-        console.warn(`[WARNING] in "${from}" (${w.start.line}:${w.start.column})\n ${w.frame.replaceAll('\n', '\n ')}`);
+        console.warn(`${c.yellow("[WARNING]")} in "${from}" (${w.start.line}:${w.start.column})\n ${w.frame.replaceAll('\n', '\n ')}
+  ${w.message.replaceAll('\n', '\n  ')}`);
     });
     let { code } = compiled.js;
     if (config.moduleOptions?.buildModules) {
@@ -147,12 +151,14 @@ function analyseAndResolve(path, dep) {
     let relativePathToMod = betterJoin(root, firstSegment);
     let prePath = prepareJSPath(betterJoin(relativePathToMod, stripped));
     if (config.moduleOptions.buildModules && !alreadyBuilt.includes(firstSegment)) {
-        try {
-            buildAll(firstSegment, config.moduleOptions.root, true).then(() => alreadyBuilt.push(firstSegment));
-        }
-        catch (e) {
-            console.error(`[BUILD ERROR] Unable to build "${dep}".\n  Error:`, e);
-        }
+        void async function () {
+            try {
+                await buildAll(firstSegment, config.moduleOptions.root, true).then(() => alreadyBuilt.push(firstSegment));
+            }
+            catch (e) {
+                console.error(`${BUILD_ERROR} Unable to build "${dep}".\n  Error:`, e);
+            }
+        }();
     }
     if (prePath.endsWith('.js')) {
         return prePath;

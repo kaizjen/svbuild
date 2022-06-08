@@ -28,7 +28,7 @@ export function resolveImport(dep: string, initialPath: string, relativePath: st
     package_json = JSON.parse(fs.readFileSync(pt.join(config.moduleOptions.modulesSrc, firstSegment, 'package.json'), 'utf-8'));
 
   } catch (e) {
-    console.error(`[BUILD ERROR] Unable to resolve "${dep}". Check if you have the dependency installed.\n  Error:`, e)
+    console.error(`[BUILD WARNING] Unable to resolve "${dep}". Check if you have the dependency installed.\n  Error:`, e.message)
     return initialPath;
   }
 
@@ -89,10 +89,10 @@ export function resolveImport(dep: string, initialPath: string, relativePath: st
       exportedMod = exportedMod_any;
 
     } else if (exportedMod_any == undefined) {
-      console.error(`[BUILD ERROR] Unable to find exports for "${dep}". Using "${pt.join(initialPath, index)}"`);
+      console.error(`[BUILD WARNING] Unable to find exports for "${dep}". Using "${pt.join(initialPath, index)}"`);
 
     } else {
-      exportedMod = exportedMod_any.import
+      exportedMod = exportedMod_any.import // get es6 export
     }
 
     let final = exportedMod ? pt.join(relativePath, exportedMod) : pt.join(initialPath, index)

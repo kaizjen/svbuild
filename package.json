@@ -1,6 +1,6 @@
 {
   "name": "svbuild",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "[beta] A simple tool that builds your svelte files without bundling them.",
   "main": "dist/main.js",
   "scripts": {
@@ -17,6 +17,7 @@
   "license": "ISC",
   "dependencies": {
     "acorn": "^8.7.1",
+    "chalk": "^5.0.1",
     "chokidar": "^3.5.3",
     "commander": "^9.2.0",
     "fs-extra": "^10.1.0",
@@ -29,13 +30,15 @@
   "exports": {
     ".": "./dist/compile.js",
     "./config": "./dist/config.js",
-    "./resolve": "./dist/resolve.js"
+    "./resolve": "./dist/resolve.js",
+    "./types": "./types.d.ts"
   },
   "bin": {
     "svbuild": "./dist/main.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "./config.d.ts"
   ],
   "repository": "https://github.com/wheezard/svbuild"
 }
