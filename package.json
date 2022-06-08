@@ -1,6 +1,6 @@
 {
   "name": "svbuild",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "[beta] A simple tool that builds your svelte files without bundling them.",
   "main": "dist/main.js",
   "scripts": {
@@ -38,7 +38,7 @@
   },
   "files": [
     "dist",
-    "./config.d.ts"
+    "types.d.ts"
   ],
   "repository": "https://github.com/wheezard/svbuild"
 }
