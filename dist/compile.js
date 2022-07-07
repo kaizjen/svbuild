@@ -62,7 +62,7 @@ export async function build(dir, enPath, destPath, onError) {
             compilationMap[pt.normalize(enPath)] = { type: 'js', path: destPath };
         }
         else {
-            await fs.copy(enPath, destPath, { recursive: true, overwrite: false });
+            await fs.copy(enPath, destPath, { recursive: true, overwrite: true });
             compilationMap[pt.normalize(enPath)] = { type: 'unknown', path: destPath };
         }
     }
