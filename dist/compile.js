@@ -74,7 +74,8 @@ export async function compile(from, to) {
     const contents = await fs.readFile(from, 'utf-8');
     let compiled;
     try {
-        compiled = svelte.compile(contents, {
+        let { code } = await svelte.preprocess(contents, config.preprocess || [], { filename: pt.basename(from) });
+        compiled = svelte.compile(code, {
             css: true,
             accessors: config.compilerOptions.accessors,
             immutable: config.compilerOptions.immutable,
@@ -86,8 +87,14 @@ export async function compile(from, to) {
             sveltePath: config.moduleOptions ? 'svelte' : config.compilerOptions.sveltePath // sveltePath is handled by svbuild
         });
     }
-    catch ({ code, start, end, frame }) {
-        console.warn(`${c.red("[ERROR]")} in "${from}" (${start.line}:${start.column})\n ${frame.replaceAll('\n', '\n ')}`);
+    catch (err) {
+        if ('start' in err) {
+            let { start, frame } = err;
+            console.warn(`${c.red("[ERROR]")} in "${from}" (${start.line}:${start.column})\n ${frame.replaceAll('\n', '\n ')}`);
+        }
+        else {
+            console.warn(`${c.red("[ERROR]")} in preprocessing step:\n ${err.toString().replaceAll('\n', '\n ')}`);
+        }
         return;
     }
     compiled.warnings.forEach(w => {

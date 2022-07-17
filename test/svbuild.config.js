@@ -1,3 +1,4 @@
+import sveltePreprocess from "svelte-preprocess";
 /**
  * @type {import('svbuild/types').Config}
  */
@@ -9,6 +10,9 @@ const config = {
     dev: true,
     sveltePath: './out/m/svelte'
   },
+  preprocess: sveltePreprocess({
+    typescript: {}
+  }),
   moduleOptions: {
     root: './out/m',
     buildModules: true,

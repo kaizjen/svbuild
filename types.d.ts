@@ -1,3 +1,5 @@
+import { PreprocessorGroup } from "svelte/types/compiler/preprocess"
+
 /**
  * Configuration for `svbuild`. All paths are relative to CWD.
  */
@@ -21,6 +23,8 @@ export type Config = {
     /** A number that tells Svelte to break the loop if it blocks the thread for more than `loopGuardTimeout` ms. This is useful to prevent infinite loops. Only available when `dev: true` */
     loopGuardTimeout?: number
   },
+  /** Preprocessors allow for integration of different languages and features into svelte. */
+  preprocess?: PreprocessorGroup | PreprocessorGroup[]
   /** Options for the module resolver. This **must not** be defined if `compilerOptions.esm` is `false` */
   moduleOptions?: {
     /** The folder where the compiled modules are or will be built to.
