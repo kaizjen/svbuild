@@ -14,7 +14,7 @@ const config = {
     typescript: {}
   }),
   moduleOptions: {
-    root: './out/m',
+    root: 'm',
     buildModules: true,
     buildSvelte: true,
     modulesSrc: 'node_modules'

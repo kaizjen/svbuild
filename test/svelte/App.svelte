@@ -1,11 +1,14 @@
 <script lang="ts">
 	import Counter from "./components/Counter.svelte";
 	import { TextBox } from "fluent-svelte";
+	import { setContext } from "svelte";
 
 	type Name = {
 		value: string
 	}
 	let name: Name = { value: 'world' };
+
+	setContext('msg', 'Hi')
 </script>
 
 {#if name.value}

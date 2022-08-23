@@ -1,6 +1,8 @@
 import * as _fs from "fs-extra";
-import * as pt from "path";
+import * as p from "path";
+import c from "chalk";
 import urlJoin from "url-join";
+import { parse } from "url";
 const fs = _fs.default;
 export function prepareJSPath(path) {
     path = path.replaceAll('\\', '/');
@@ -13,70 +15,100 @@ export function prepareJSPath(path) {
 }
 /** Joiner that supports URLs */
 export function betterJoin(segment1, ...paths) {
-    paths = paths.map(p => pt.normalize(p)).filter(p => p != '/'); // don't normalize the 1st segment that contains the url
+    paths = paths.map(p => p.normalize(p)).filter(p => p != '/'); // don't normalize the 1st segment that contains the url
     return urlJoin(segment1, ...paths);
 }
-export function resolveImport(dep, initialPath, relativePath) {
-    let firstSegment = dep.split('/')[0];
-    let stripped = dep.replace(firstSegment, '').slice(1); // slice(1) removes the slash
-    let package_json;
-    try {
-        package_json = JSON.parse(fs.readFileSync(pt.join(config.moduleOptions.modulesSrc, firstSegment, 'package.json'), 'utf-8'));
-    }
-    catch (e) {
-        console.error(`[BUILD WARNING] Unable to resolve "${dep}". Check if you have the dependency installed.\n  Error:`, e.message);
-        return initialPath;
-    }
-    if (firstSegment == dep) {
-        let { main, module: _module, exports: _exports } = package_json;
-        if (!_exports || typeof _exports != 'object') {
-            return prepareJSPath(pt.join(initialPath, _module || main || 'index.js'));
+function isURL(path) {
+    return !!parse(path).protocol;
+}
+function parsePackageJSON(contents, moduleName, otherSegments, resolution) {
+    if ('exports' in contents) {
+        function analyzeExports(exportsField) {
+            if (typeof exportsField == 'string')
+                return exportsField;
+            for (const key in exportsField) {
+                const element = exportsField[key];
+                if (key.startsWith('./')) {
+                    if (p.normalize(key) != otherSegments)
+                        continue;
+                    if (typeof element == 'string') {
+                        return element;
+                    }
+                    else {
+                        return analyzeExports(element);
+                    }
+                }
+                else {
+                    if (key == resolution || key == 'import') {
+                        return analyzeExports(element);
+                    }
+                }
+            }
+            if ('default' in exportsField) {
+                return analyzeExports(exportsField.default);
+            }
+            throw `The "exports" field is invalid.`;
         }
-        let exportedMod_any = _exports['.'];
-        let exportedMod;
-        if (typeof exportedMod_any == 'string') {
-            exportedMod = exportedMod_any;
+        if (typeof contents.exports == 'string') {
+            return contents.exports;
         }
         else {
-            exportedMod = exportedMod_any.import;
-        }
-        let final = exportedMod ? pt.join(relativePath, exportedMod) : pt.join(initialPath, _module || main || 'index.js');
-        return prepareJSPath(final);
-    }
-    else {
-        let index = 'index.js';
-        let { exports: _exports } = package_json;
-        if (!_exports || typeof _exports != 'object') {
-            return prepareJSPath(pt.join(initialPath, index));
-        }
-        let normalized = pt.normalize(stripped).replaceAll('\\', '/');
-        let exportedMod_any = _exports[normalized] || _exports['./' + normalized];
-        let exportedMod;
-        if (exportedMod_any == undefined) {
-            let separated = stripped.split('/');
-            let prevSegments = [];
-            for (const segment of separated) {
-                let joined = prevSegments.join('/');
-                let normalized = pt.normalize((joined ? (joined + '/') : '') + stripped).replaceAll('\\', '/');
-                exportedMod_any =
-                    _exports[normalized] ||
-                        _exports['./' + normalized];
-                if (exportedMod_any) {
-                    break;
-                }
-                prevSegments.push(segment);
+            if (!contents.exports['.'])
+                throw `Invalid exports field in package.json of module "${moduleName}"`;
+            if (otherSegments == '') {
+                return analyzeExports(contents.exports['.']);
+            }
+            else {
+                return analyzeExports(contents.exports);
             }
         }
-        if (typeof exportedMod_any == 'string') {
-            exportedMod = exportedMod_any;
+    }
+    else {
+        return contents.module || contents.main;
+    }
+}
+async function resolveModule(modulePath, resolution) {
+    try {
+        const moduleName = modulePath.split('/')[0];
+        const otherSegments = modulePath.split('/').slice(1).join('/');
+        let packageJSONLocation = p.join(config.moduleOptions.modulesSrc, moduleName, 'package.json');
+        if (!(await fs.pathExists(packageJSONLocation))) {
+            throw `package.json for module "${moduleName}" \
+(in ${p.join(config.moduleOptions.modulesSrc, moduleName, 'package.json')}) \
+doesn't exist. ${moduleName.includes('.') ? "If you want to import a local file, prepend it with `./`." : ''}`;
         }
-        else if (exportedMod_any == undefined) {
-            console.error(`[BUILD WARNING] Unable to find exports for "${dep}". Using "${pt.join(initialPath, index)}"`);
+        const packageJSON = JSON.parse(await fs.readFile(packageJSONLocation, 'utf-8'));
+        return {
+            path: p.join(p.dirname(packageJSONLocation), parsePackageJSON(packageJSON, moduleName, otherSegments, resolution)),
+            moduleName
+        };
+    }
+    catch (error) {
+        console.error(c.red("[ERROR]"), `while resolving "${modulePath}":`, error + '');
+        return { path: modulePath, moduleName: '<unknown>' };
+    }
+}
+export async function resolveDependency(from, path) {
+    if (isURL(path) || path.startsWith('/')) {
+        if (p.extname(path) == "")
+            path += ".js";
+        return null;
+    }
+    if (path.startsWith('.')) {
+        if (p.extname(path) == '')
+            path += '.js';
+        return { path: p.join(p.dirname(from), path) };
+    }
+    else {
+        let resolution;
+        let moduleName = path.split('/')[0];
+        if (config.moduleOptions.preferredResolutionType) {
+            if (moduleName in config.moduleOptions.preferredResolutionType) {
+                resolution = config.moduleOptions.preferredResolutionType[moduleName];
+            }
         }
-        else {
-            exportedMod = exportedMod_any.import; // get es6 export
-        }
-        let final = exportedMod ? pt.join(relativePath, exportedMod) : pt.join(initialPath, index);
-        return prepareJSPath(final);
+        if (moduleName == 'svelte' && !config.moduleOptions.buildSvelte)
+            return { path: '', moduleName };
+        return await resolveModule(path, resolution);
     }
 }

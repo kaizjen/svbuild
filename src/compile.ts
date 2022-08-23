@@ -1,155 +1,30 @@
 import * as _fs from "fs-extra";
-import * as pt from "path";
-import * as svelte from "svelte/compiler";
-import * as acorn from "acorn";
-import { betterJoin, prepareJSPath, resolveImport } from "./resolve.js";
-import { logger } from "./config.js";
 import c from "chalk";
+import * as svelte from "svelte/compiler";
+import * as p from "path";
+import * as acorn from "acorn";
+import { logger } from "./config.js";
+import { resolveDependency } from "./resolve.js";
 
-const fs = (_fs as any).default as typeof _fs
-const BUILD_ERROR = c.bgRed("[BUILD ERROR]")
-
-export const compilationMap: Record<string, { path: string, type: 'dir' | 'svelte' | 'js' | 'unknown' }> = {}
-
-const alreadyBuilt: string[] = []
-
-export function includeBuiltModules(modDir: string) {
-  try {
-    let entries = fs.readdirSync(modDir);
-    alreadyBuilt.push(...entries)
-
-  } catch (_) {}
-}
+const fs = (_fs as any).default as typeof _fs;
 
 
-export async function buildAll(dep: string, to: string, isDependency?: boolean) {
-  async function dir(path: string, to: string) {
-    let entries: string[] = []
-    try {
-      entries = await fs.readdir(path);
+type DependsOn = (dep: string) => Promise<string>
 
-    } catch (e) {
-      console.error(`${BUILD_ERROR} Can't get the source of dependency "${dep}" (folder "${path}"). Check if you have it installed in modulesSrc.\nError:`, e);
-      return;
-    }
-
-    for (const en of entries) {
-      const enPath = betterJoin(path, en)
-      const destPath = betterJoin(to, en)
-      build(dir, enPath, destPath, (e) => {
-        console.error(`${BUILD_ERROR} Unable to build dependency "${dep}". \n  Error:`, e)
-      })
-    }
-  }
-  if (isDependency) {
-    let initialDep = dep;
-    dep = betterJoin(config.moduleOptions.modulesSrc, dep);
-    logger("Building dependency %o, path: %o", initialDep, dep)
-    await dir(dep, betterJoin(to, initialDep))
-    
-  } else {
-    logger("Compiling all from %o to %o", dep, to)
-    await dir(dep, to)
-  }
-}
-
-export async function build(dir: (from: string, to: string) => any, enPath: string, destPath: string, onError: (e: Error) => any) {
-  try {
-    if ((await fs.lstat(enPath)).isDirectory()) {
-      await dir(enPath, destPath)
-      compilationMap[pt.normalize(enPath)] = { type: 'dir', path: destPath }
-
-    } else if (enPath.endsWith('.svelte')) {
-      await compile(enPath, destPath + '.js')
-      compilationMap[pt.normalize(enPath)] = { type: 'svelte', path: destPath }
-
-    } else if (enPath.endsWith('.js') || enPath.endsWith('.mjs')) {
-      const code = await modImports(destPath, await fs.readFile(enPath, 'utf-8'));
-      await fs.ensureFile(destPath);
-      await fs.writeFile(destPath, code);
-      compilationMap[pt.normalize(enPath)] = { type: 'js', path: destPath }
-
-    } else {
-      await fs.copy(enPath, destPath, { recursive: true, overwrite: true })
-      compilationMap[pt.normalize(enPath)] = { type: 'unknown', path: destPath }
-    }
-
-  } catch (e) {
-    onError(e);
-  }
-}
-
-export async function compile(from: string, to: string) {
-  const contents = await fs.readFile(from, 'utf-8');
-
-  let compiled: ReturnType<typeof svelte.compile>;
-  try {
-    let { code } = await svelte.preprocess(contents, config.preprocess || [], { filename: pt.basename(from) });
-    compiled = svelte.compile(code, {
-      css: true,
-      accessors: config.compilerOptions.accessors,
-      immutable: config.compilerOptions.immutable,
-      loopGuardTimeout: config.compilerOptions.loopGuardTimeout,
-      generate: 'dom',
-      format: config.compilerOptions.esm ? 'esm' : 'cjs',
-      filename: pt.basename(from),
-      dev: config.compilerOptions.dev,
-      sveltePath: config.moduleOptions ? 'svelte' : config.compilerOptions.sveltePath // sveltePath is handled by svbuild
-    });
-
-  } catch (err) {
-    if ('start' in err) {
-      let { start, frame } = err;
-      console.warn(`${c.red("[ERROR]")} in "${from}" (${start.line}:${start.column})\n ${frame.replaceAll('\n', '\n ')}`);
-      
-    } else {
-      console.warn(`${c.red("[ERROR]")} in preprocessing step:\n ${err.toString().replaceAll('\n', '\n ')}`);
-    }
-    return;
-  }
-
-  compiled.warnings.forEach(w => {
-    console.warn(`${c.yellow("[WARNING]")} in "${from}" (${w.start.line}:${w.start.column})\n ${w.frame.replaceAll('\n', '\n ')}
-  ${w.message.replaceAll('\n', '\n  ')}`);
-  })
-
-  let { code }: { code: string } = compiled.js;
-
-  if (config.moduleOptions?.buildModules) {
-    code = await modImports(to, code);
-  }
-
-  void async function writeCompiled() {
-    await fs.ensureFile(to)
-    await fs.writeFile(to, code);
-  }()
-}
-
-export async function modImports(resolveFrom: string, code: string) {
+export async function modImports(code: string, dependsOn: DependsOn) {
   const { body } = acorn.parse(code, { ecmaVersion: 'latest', sourceType: 'module' }) as any; // as any because typescript goes nuts
 
   let shiftBy = 0;
   for (const node of body) {
-    // maybe should switch to recast (or magic-string) instead of this 
-    // also it would make it easier to plug it into the preprocessor instead of post-processing
+    // maybe should switch to recast (or magic-string) instead of this
     if (node.type != 'ImportDeclaration' && (node.type != 'ExportNamedDeclaration' || node.source == null)) continue;
     
     const { source } = node;
 
     let modPath = source.value as string;
     let fixedString: string;
-    if (modPath.startsWith('.') || modPath.startsWith('/') || modPath.includes('://')) {
-      if (!modPath.endsWith('.js') && !modPath.endsWith('.mjs')) {
-        modPath += '.js';
-      }
-      fixedString = modPath;
 
-    } else {
-      fixedString = analyseAndResolve(pt.dirname(resolveFrom), modPath);
-    }
-
-
-    logger("Converted:", modPath, "->", fixedString)
+    fixedString = await dependsOn(modPath);
 
     // actually no idea why 5 characters
     let cut = code.slice(source.start + shiftBy - 5, source.end + shiftBy + 5);
@@ -163,45 +38,194 @@ export async function modImports(resolveFrom: string, code: string) {
   return code;
 }
 
-/** makes all imports relative */
-function analyseAndResolve(path: string, dep: string) {
-  logger(`Analysing "${dep}" from "${path}"`);
+export async function svelteTool(filename: string, contents: string, dependsOn: DependsOn, moduleName: string) {
+  let compiled: ReturnType<typeof svelte.compile>;
+  try {
+    let code = contents;
+    const setCode = async () => code = (await svelte.preprocess(contents, config.preprocess || [], { filename })).code
+    if (moduleName) {
+      if (typeof config.moduleOptions.usePreprocessorsWithModules == 'object') {
+        if (moduleName in config.moduleOptions.usePreprocessorsWithModules) {
+          if (config.moduleOptions.usePreprocessorsWithModules[moduleName]) {
+            await setCode()
+          }
+        }
+      } else if (config.moduleOptions.usePreprocessorsWithModules) {
+        await setCode()
+      }
+      
+    } else {
+      await setCode()
+    }
 
-  if (!config.moduleOptions?.root) return prepareJSPath(dep);
-  
-  const root = pt.relative(path, config.moduleOptions.root)
+    compiled = svelte.compile(code, {
+      css: true,
+      accessors: config.compilerOptions.accessors,
+      immutable: config.compilerOptions.immutable,
+      loopGuardTimeout: config.compilerOptions.loopGuardTimeout,
+      generate: 'dom',
+      format: config.compilerOptions.esm ? 'esm' : 'cjs',
+      filename,
+      dev: config.compilerOptions.dev,
+      sveltePath: config.moduleOptions ? 'svelte' : config.compilerOptions.sveltePath // sveltePath is handled by svbuild
+    });
 
-  let firstSegment = dep.split('/')[0];
-  let stripped = dep.replace(firstSegment, '').slice(1); // slice(1) removes the slash
-  
-  if (!config.moduleOptions.buildSvelte) {
-    if (firstSegment == 'svelte') {
-      if (pt.extname(stripped) == '') stripped = betterJoin(stripped, 'index.mjs')
-
-      logger('Imported svelte module:', betterJoin(config.compilerOptions.sveltePath, stripped));
-      return prepareJSPath(betterJoin(config.compilerOptions.sveltePath, stripped))
+  } catch (err) {
+    if ('start' in err) {
+      let { start, frame } = err;
+      throw `in "${filename}" (${start.line}:${start.column})\n ${frame.replaceAll('\n', '\n ')}`;
+      
+    } else {
+      throw `in preprocessing step of "${filename}":\n ${err.toString().replaceAll('\n', '\n ')}`;
     }
   }
 
-  let relativePathToMod = betterJoin(root, firstSegment);
+  compiled.warnings.forEach(w => {
+    console.warn(`${c.yellow("[WARNING]")} in "${filename}" (${w.start.line}:${w.start.column})\n ${w.frame.replaceAll('\n', '\n ')}
+  ${w.message.replaceAll('\n', '\n  ')}`);
+  })
 
-  let prePath = prepareJSPath(betterJoin(relativePathToMod, stripped));
+  let { code }: { code: string } = compiled.js;
 
-  if (config.moduleOptions.buildModules && !alreadyBuilt.includes(firstSegment)) {
-    void async function () {
-      try {
-        await buildAll(firstSegment, config.moduleOptions.root, true).then(() => alreadyBuilt.push(firstSegment))
-  
-      } catch (e) {
-        console.error(`${BUILD_ERROR} Unable to build "${dep}".\n  Error:`, e)
-      }
-    }()
+  if (config.moduleOptions?.buildModules) {
+    code = await modImports(code, dependsOn);
   }
 
-  if (prePath.endsWith('.js')) {
-    return prePath;
-    
+  return { code, filename: filename + '.js' };
+}
+
+export async function jsTool(filename: string, contents: string, dependsOn: DependsOn) {
+  if (filename.endsWith('.mjs')) {
+    filename = filename.slice(0, -4) + '.js'
+  }
+  if (p.extname(filename) != '.js') {
+    filename = filename + '.js'
+  }
+  return { filename, code: await modImports(contents, dependsOn) }
+}
+
+export async function copyTool(filename: string, code: string) {
+  return { filename, code }
+}
+
+
+function formatPath(path: string) {
+  path = path.replaceAll('\\', '/');
+  if (path.startsWith('.')) {
+    return path
+  }
+  return './' + path
+}
+
+function findRelativePath(path: string, src: string, moduleName?: string) {
+  if (path.startsWith(src)) {
+    return p.relative(src, p.dirname(path));
+
+  } else if (!moduleName) {
+    throw `A file required that lies outside of the "src" directory. (path: ${path})`;
+
   } else {
-    return resolveImport(dep, prePath, relativePathToMod)
+    const fileModulePath = p.relative(config.moduleOptions.modulesSrc, p.dirname(path));
+
+    // path is outside src
+    if (!config.moduleOptions.buildModules) return false;
+    
+    return p.join(config.moduleOptions.root, fileModulePath)
+  }
+}
+
+export const buildMap: Record<string, string | false> = {};
+
+export async function buildFile(path: string, moduleName?: string) {
+  /** In an event of a circular dependency, we shadow-compile this file and return the path of it.
+   * Then, the compilation resumes normally. */
+  let IS_PENDING: boolean;
+  
+  path = p.normalize(path);
+  if (path in buildMap) {
+    const inMap = buildMap[path];
+    if (inMap == false) { IS_PENDING = true }
+    else return inMap;
+  }
+
+  try {
+    const relPath = findRelativePath(path, config.src, moduleName)
+
+    if (relPath === false) return false;
+
+    buildMap[p.normalize(path)] = false; // pending build
+
+    const outPath = p.join(config.out, relPath)
+
+    const contents = await fs.readFile(path, 'utf-8');
+
+    let tool: (filename: string, contents: string, dependsOn: DependsOn, moduleName: string) => Promise<{ code: string, filename: string }>;
+
+    if (path.endsWith('.svelte')) {
+      tool = svelteTool;
+
+    } else if (path.endsWith('.mjs') || path.endsWith('.js')) {
+      tool = jsTool;
+
+    } else {
+      tool = copyTool;
+    }
+
+    logger("Building", c.green(path))
+    const { code, filename } = await tool(
+      p.basename(p.relative(config.src, path)),
+      contents,
+      async function dependsOn(dep) {
+        logger("Dependency:", c.cyan(dep))
+        if (IS_PENDING) return dep; // to prevent infinite loops
+
+        const resolved = await resolveDependency(path, dep);
+        logger("Resolved dependency:", resolved)
+        if (!resolved) return dep; // external dependency, such as a URL
+
+        if (resolved.moduleName == 'svelte' && !config.moduleOptions.buildSvelte) {
+          logger("Replacing 'svelte' with `sveltePath`")
+          return dep.replace('svelte', config.compilerOptions.sveltePath);
+        }
+        const builtPath = await buildFile(resolved.path, resolved.moduleName || moduleName);
+
+        if (builtPath === false) return dep;
+
+        const formattedPath = formatPath(p.relative(outPath, builtPath))
+        logger("Dependecy built, formatted path:", c.green(formattedPath))
+        return formattedPath;
+      },
+      moduleName
+    );
+
+    const realPath = p.join(outPath, filename);
+
+    if (!IS_PENDING) {
+      logger("Finished building", c.green(path), "\nWriting to", c.green(realPath))
+      await fs.ensureFile(realPath)
+      await fs.writeFile(realPath, code)
+    } else logger("Finished shadow-building", c.green(path))
+
+    buildMap[p.normalize(path)] = realPath;
+
+    return realPath;
+
+  } catch (err) {
+    console.error(c.red("[ERROR]"), `while trying to build "${path}":`, (err.stack ?? err) + '')
+    return false;
+  }
+}
+
+export async function buildAll(path: string) {
+  const entries = await fs.readdir(path);
+  for (const e of entries) {
+    const finalPath = p.join(path, e);
+    const stat = await fs.lstat(finalPath)
+    if (stat.isDirectory()) {
+      await buildAll(finalPath)
+
+    } else if (stat.isFile()) {
+      await buildFile(finalPath)
+    }
   }
 }

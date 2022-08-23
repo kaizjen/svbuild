@@ -1,7 +1,7 @@
 import * as pt from "path";
 export const defaultConfig = {
-    src: '',
-    out: '',
+    src: 'src',
+    out: 'out',
     compilerOptions: {
         dev: true,
         esm: true,
@@ -11,19 +11,35 @@ export const defaultConfig = {
         root: "modules",
         buildModules: false,
         modulesSrc: 'node_modules',
-        buildSvelte: false
+        buildSvelte: false,
+        usePreprocessorsWithModules: false,
+        preferredResolutionType: {}
     }
 };
-export async function importConfig(path = './svbuild.config.js') {
-    path = pt.resolve(path);
+let configPath;
+export const resolveFromConfig = (path) => pt.join(pt.dirname(configPath), path);
+export async function importConfig(path) {
+    configPath = pt.resolve(path);
     try {
-        let c = await import('file:///' + path.replaceAll('\\', '/'));
+        let c = await import('file:///' + configPath.replaceAll('\\', '/'));
         global.config = c.default;
     }
     catch (_) {
         console.log("Configuration file not found.");
-        global.config = defaultConfig;
+        process.exit(1);
     }
+    if (!('moduleOptions' in config)) {
+        config.moduleOptions = defaultConfig.moduleOptions;
+    }
+    if (!config.moduleOptions.preferredResolutionType) {
+        config.moduleOptions.preferredResolutionType = defaultConfig.moduleOptions.preferredResolutionType;
+    }
+    if (!config.moduleOptions.usePreprocessorsWithModules) {
+        config.moduleOptions.usePreprocessorsWithModules = defaultConfig.moduleOptions.usePreprocessorsWithModules;
+    }
+    config.src = resolveFromConfig(config.src);
+    config.out = resolveFromConfig(config.out);
+    config.moduleOptions.modulesSrc = resolveFromConfig(config.moduleOptions.modulesSrc);
 }
 export function logger(...info) {
     if (!global.verbose)
