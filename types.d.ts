@@ -1,7 +1,7 @@
 import { PreprocessorGroup } from "svelte/types/compiler/preprocess"
 
 /**
- * Configuration for `svbuild`. All paths are relative to CWD.
+ * Configuration for `svbuild`. All paths are relative to this file, unless specified otherwise.
  */
 export type Config = {
   /** Path to source directory with svelte code */

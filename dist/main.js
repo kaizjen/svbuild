@@ -10,7 +10,7 @@ program.name("svbuild")
     .option("-c, --config <path>", "Path to the configuration file", './svbuild.config.js')
     .option("-v, --verbose", "Log internal information")
     .option("-w, --watch", "Watch the src directory for changes")
-    .option("-B, --no-build", "Don't build everything at first, only works with --watch")
+    .option("-B, --no-build", "Don't build the project at first, only works with --watch")
     .action(async ({ config: cPath, verbose, build: shouldBuild, watch }) => {
     if (!watch && !shouldBuild) {
         console.error("Options --no-build can only be specified with --watch.");
