@@ -10,7 +10,7 @@ This tool is **not** for making websites. For that, use `SvelteKit` or a bundler
 
 ## Getting started
 
-- Install svbuild globally by running `npm i svbuild -g` or locally (not recommended): `npm i svbuild -D`
+- Install svbuild globally by running `npm i svbuild -g` or locally: `npm i svbuild -D`
 
 - Create a folder with two subfolders: `/src` and `/out`.
 
@@ -38,7 +38,7 @@ export type Config = {
   out: string,
   /** Svelte compiler options */
   compilerOptions?: {
-    /** Whether to generate code with ES6 imports and exports Note that svbuild doesn't provide a `require()` funtion! */
+    /** Whether to generate code with ES6 imports and exports. Note that svbuild doesn't provide a `require()` funtion! */
     esm?: boolean,
     /** Developer mode */
     dev?: boolean,
@@ -51,18 +51,28 @@ export type Config = {
     /** A number that tells Svelte to break the loop if it blocks the thread for more than `loopGuardTimeout` ms. This is useful to prevent infinite loops. Only available when `dev: true` */
     loopGuardTimeout?: number
   },
+  /** Preprocessors allow for integration of different languages and features into svelte. */
+  preprocess?: PreprocessorGroup | PreprocessorGroup[]
   /** Options for the module resolver. This **must not** be defined if `compilerOptions.esm` is `false` */
   moduleOptions?: {
     /** The folder where the compiled modules are or will be built to.
-     * > Note: this path is relative to the CWD, not to the `out` directory */
-    root?: string,
+     * > Note: this path is relative to the `out` directory */
+    root?: string
     /** Whether svbuild should build all the dependencies */
-    buildModules?: boolean,
-    /** Path to the folder, from which the dependencies are taken from. Default is `./node_modules`
+    buildModules?: boolean
+    /** Path to the folder, from which the dependencies are taken from. Default is `"node_modules"`
      * @default "node_modules" */
-    modulesSrc?: string,
+    modulesSrc?: string
     /** Whether svbuild should build svelte like a regular dependency */
     buildSvelte?: boolean
+    /** Whether svbuild should preprocess module code. Can be either set to boolean, or to an object with module names as keys. */
+    usePreprocessorsWithModules?: boolean | {
+      [moduleName: string]: string
+    }
+    /** The preferred type of the `exports` field. Is usually `"browser"`, but can be set to anything else if that's causing problems */
+    preferredResolutionType?: {
+      [moduleName: string]: string
+    }
   }
 }
 ```
@@ -71,18 +81,17 @@ An example config file looks like this:
 
 ```js
 /**
- * @type {import('../config').Config}
+ * @type {import('svbuild/types').Config}
  */
 const config = {
   src: './svelte',
   out: './out',
   compilerOptions: {
     esm: true,
-    dev: true,
-    sveltePath: './out/modules/svelte'
+    dev: true
   },
   moduleOptions: {
-    root: './out/modules',
+    root: 'modules',
     buildModules: true,
     buildSvelte: true,
     modulesSrc: 'node_modules'
@@ -98,25 +107,17 @@ This is how to use the `svbuild` tool
 
 `svbuild`
 
-- `-s, --src <path>` - Source dir, overrides `config.src`
-
-- `-o, --out <path>` - Output, overrides `config.out`
-
 - `-c, --config <path>` - Path to the configuration file (default: `./svbuild.config.js`)
 
 - `-v, --verbose` - Log internal information
 
-- `-R, --rebuild` - Usually, svbuild doesn't build the same module twice. This option makes it forcefully rebuild all dependencies.
+- `-w, --watch` - Watch the src directory for changes.
 
-`svbuild watch` - Watches the `src` directory for changes and rebuilds changed files
-
-- `--src, --out, --config, --verbose` is the same as `svbuild`
-
-- `-b, --no-build` - Don't build the project on start.
+- `-B, --no-build` - Don't build the project at first, only works with --watch
 
 ## Limitations
 
-Currently, svbuild doesn't support preprocessors and source maps. This will probably be implemented in a next major version.
+Currently, svbuild doesn't support source maps. This will probably be implemented in a next major version.
 
 Also note that svbuild is still in beta so it can include bugs. Please report all issues on Github.
 

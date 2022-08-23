@@ -1,92 +1,57 @@
 #!/usr/bin/env node
 import { program } from "commander";
-import { build, buildAll, compilationMap, includeBuiltModules } from "./compile.js";
+import { buildFile, buildAll, buildMap } from "./compile.js";
 import { defaultConfig, importConfig, logger } from "./config.js";
 import * as chokidar from "chokidar";
 import * as pt from "path";
 import * as _fs from "fs-extra";
 const fs = _fs.default;
-program.name("svbuild").option("-s, --src <path>", "Compile files from this directory")
-    .option("-o, --out <path>", "Compile files to this directory")
-    .option("-c, --config <path>", "Path to the configuration file")
+program.name("svbuild")
+    .option("-c, --config <path>", "Path to the configuration file", './svbuild.config.js')
     .option("-v, --verbose", "Log internal information")
-    .option("-R, --rebuild", "Rebuild modules in out dir.")
-    .action(async ({ src, out, config: cPath, verbose, rebuild }) => {
+    .option("-w, --watch", "Watch the src directory for changes")
+    .option("-B, --no-build", "Don't build the project at first, only works with --watch")
+    .action(async ({ config: cPath, verbose, build: shouldBuild, watch }) => {
+    if (!watch && !shouldBuild) {
+        console.error("Options --no-build can only be specified with --watch.");
+        process.exit(1);
+    }
     await importConfig(cPath);
-    out = config.out || out;
-    src = config.src || src;
     config.compilerOptions ||= Object.assign(defaultConfig.compilerOptions, config.compilerOptions);
     if (config.moduleOptions) {
         config.moduleOptions = Object.assign(defaultConfig.moduleOptions, config.moduleOptions);
-        if (!rebuild) {
-            includeBuiltModules(config.moduleOptions.root);
-        }
     }
     global.verbose = verbose;
-    if (!out || !src) {
-        console.error(`Directories "out" and/or "src" are not specified.`);
-        process.exit(1);
-    }
     if (config.compilerOptions?.esm == false && config.moduleOptions) {
         console.error(`compilerOptions.esm cannot be %o with config.moduleOptions`, false);
         process.exit(1);
     }
-    buildAll(src, out);
-});
-program.command("watch").description("Watches the src directory for changes")
-    .option("-s, --src <path>", "Compile files from this directory")
-    .option("-o, --out <path>", "Compile files to this directory")
-    .option("-c, --config <path>", "Path to the configuration file")
-    .option("-b, --no-build", "Don't build everything at first")
-    .option("-v, --verbose", "Log internal information")
-    .action(async ({ src, out, config: cPath, verbose, build: shouldBuild }) => {
-    await importConfig(cPath);
-    out = out || config.out;
-    src = src || config.src;
-    config.compilerOptions ||= Object.assign(defaultConfig.compilerOptions, config.compilerOptions);
-    if (config.moduleOptions) {
-        config.moduleOptions = Object.assign(defaultConfig.moduleOptions, config.moduleOptions);
-    }
-    global.verbose = verbose;
-    if (!out || !src) {
-        console.error(`Directories "out" and/or "src" are not specified.`);
-        process.exit(1);
-    }
-    if (!(config.compilerOptions?.esm) && config.moduleOptions) {
-        console.error(`compilerOptions.esm cannot be %o with config.moduleOptions`, false);
-        process.exit(1);
-    }
     if (shouldBuild) {
-        buildAll(src, out);
+        buildAll(config.src);
     }
-    const watcher = chokidar.watch('.', { atomic: true, cwd: src, persistent: true });
+    if (!watch)
+        return;
+    const watcher = chokidar.watch('.', { atomic: true, cwd: config.src, persistent: true });
     watcher.on('ready', () => {
-        console.log('Watching', src);
+        console.log('Watching', config.src);
         watcher.on('add', (path) => {
-            let from = pt.join(src, path);
-            let dest = pt.join(out, path);
+            let from = pt.join(config.src, path);
+            let dest = pt.join(config.out, path);
             console.log(`Building`, dest);
-            build(buildAll, from, dest, (e) => {
-                console.error(`Error while building "${path}" to "${dest}".\nError:`, e);
-            });
-        });
-        watcher.on('addDir', (path) => {
-            if (!path)
-                return;
-            path = pt.join(src, path);
-            let dest = pt.join(out, path);
-            buildAll(path, dest);
+            buildFile(from);
         });
         watcher.on('unlink', (path) => {
             if (!path)
                 return;
-            path = pt.join(src, path);
-            if (path in compilationMap) {
-                const map = compilationMap[path];
-                logger(`Unlinking "${map.path}" for "${path}"`);
-                console.log(`Removing`, map.path);
-                fs.rmSync(map.path + (map.type == 'svelte' ? '.js' : ''), { recursive: true });
-                delete compilationMap[path];
+            path = pt.join(config.src, path);
+            if (path in buildMap) {
+                const built = buildMap[path];
+                if (!built)
+                    return;
+                logger(`Unlinking "${built}" for "${path}"`);
+                console.log(`Removing`, built);
+                fs.rmSync(built, { recursive: true });
+                delete buildMap[path];
                 return;
             }
             logger(`no unlink for ${path}`);
@@ -94,12 +59,14 @@ program.command("watch").description("Watches the src directory for changes")
         watcher.on('unlinkDir', (path) => {
             if (!path)
                 return;
-            path = pt.join(src, path);
-            if (path in compilationMap) {
-                const map = compilationMap[path];
-                logger(`Unlinking "${map.path}" for "${path}"`);
-                console.log(`Removing`, map.path);
-                fs.rmSync(map.path, { recursive: true });
+            path = pt.join(config.src, path);
+            if (path in buildMap) {
+                const built = buildMap[path];
+                if (!built)
+                    return;
+                logger(`Unlinking "${built}" for "${path}"`);
+                console.log(`Removing`, built);
+                fs.rmSync(built, { recursive: true });
                 return;
             }
             logger(`no unlink for ${path}`);
@@ -107,21 +74,19 @@ program.command("watch").description("Watches the src directory for changes")
         watcher.on('change', (path) => {
             if (!path)
                 return;
-            let from = pt.join(src, path);
-            if (from in compilationMap) {
-                const map = compilationMap[from];
-                logger(`Changing "${map.path}" for "${from}"`);
-                console.log(`Building`, map.path);
-                build(buildAll, from, map.path, (e) => {
-                    console.error(`Error while building "${from}" to "${map.path}".\nError:`, e);
-                });
+            let from = pt.join(config.src, path);
+            map: if (from in buildMap) {
+                const built = buildMap[from];
+                logger(`Changing "${built}" for "${from}"`);
+                if (!built)
+                    break map;
+                console.log(`Building`, built);
+                buildFile(from);
                 return;
             }
-            let dest = pt.join(out, path);
+            let dest = pt.join(config.out, path);
             console.log(`Building`, dest);
-            build(buildAll, from, dest, (e) => {
-                console.error(`Error while building "${path}" to "${dest}".\nError:`, e);
-            });
+            buildFile(from);
         });
     });
 });

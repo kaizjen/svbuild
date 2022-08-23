@@ -1,7 +1,7 @@
 import { PreprocessorGroup } from "svelte/types/compiler/preprocess"
 
 /**
- * Configuration for `svbuild`. All paths are relative to CWD.
+ * Configuration for `svbuild`. All paths are relative to this file, unless specified otherwise.
  */
 export type Config = {
   /** Path to source directory with svelte code */
@@ -28,14 +28,22 @@ export type Config = {
   /** Options for the module resolver. This **must not** be defined if `compilerOptions.esm` is `false` */
   moduleOptions?: {
     /** The folder where the compiled modules are or will be built to.
-     * > Note: this path is relative to the CWD, not to the `out` directory */
-    root?: string,
+     * > Note: this path is relative to the `out` directory */
+    root?: string
     /** Whether svbuild should build all the dependencies */
-    buildModules?: boolean,
-    /** Path to the folder, from which the dependencies are taken from. Default is `./node_modules`
+    buildModules?: boolean
+    /** Path to the folder, from which the dependencies are taken from. Default is `"node_modules"`
      * @default "node_modules" */
-    modulesSrc?: string,
+    modulesSrc?: string
     /** Whether svbuild should build svelte like a regular dependency */
     buildSvelte?: boolean
+    /** Whether svbuild should preprocess module code. Can be either set to boolean, or to an object with module names as keys. */
+    usePreprocessorsWithModules?: boolean | {
+      [moduleName: string]: string
+    }
+    /** The preferred type of the `exports` field. Is usually `"browser"`, but can be set to anything else if that's causing problems */
+    preferredResolutionType?: {
+      [moduleName: string]: string
+    }
   }
 }
