@@ -90,21 +90,4 @@ program.name("svbuild")
         });
     });
 });
-program.command("watch").description("Watches the src directory for changes")
-    .option("-c, --config <path>", "Path to the configuration file", './svbuild.config.js')
-    .option("-v, --verbose", "Log internal information")
-    .option("-B, --no-build", "Don't build everything at first")
-    .action(async ({ config: cPath, verbose, build: shouldBuild }) => {
-    console.log(process.argv, { config: cPath, verbose, build: shouldBuild });
-    await importConfig(cPath);
-    config.compilerOptions ||= Object.assign(defaultConfig.compilerOptions, config.compilerOptions);
-    if (config.moduleOptions) {
-        config.moduleOptions = Object.assign(defaultConfig.moduleOptions, config.moduleOptions);
-    }
-    global.verbose = verbose;
-    if (!(config.compilerOptions?.esm) && config.moduleOptions) {
-        console.error(`compilerOptions.esm cannot be %o with config.moduleOptions`, false);
-        process.exit(1);
-    }
-});
 program.parse();
