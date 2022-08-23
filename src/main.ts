@@ -39,7 +39,7 @@ program.name("svbuild")
     }
 
     if (shouldBuild) {
-      buildAll(config.src)
+      await buildAll(config.src)
     }
 
     if (!watch) return;
@@ -50,9 +50,8 @@ program.name("svbuild")
       console.log('Watching', config.src)
       watcher.on('add', (path) => {
         let from = pt.join(config.src, path)
-        let dest = pt.join(config.out, path);
 
-        console.log(`Building`, dest);
+        console.log(`Building`, from);
         buildFile(from)
       });
   
@@ -91,19 +90,10 @@ program.name("svbuild")
       watcher.on('change', (path) => {
         if (!path) return;
         let from = pt.join(config.src, path);
-  
-        map: if (from in buildMap) {
-          const built = buildMap[from];
-          logger(`Changing "${built}" for "${from}"`);
-          if (!built) break map;
 
-          console.log(`Building`, built);
-          buildFile(from)
-          return;
-        }
-        let dest = pt.join(config.out, path);
+        delete buildMap[pt.normalize(from)]
 
-        console.log(`Building`, dest);
+        console.log(`Building`, from);
         buildFile(from)
       })
     })
