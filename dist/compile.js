@@ -54,7 +54,8 @@ export async function svelteTool(filename, contents, dependsOn, moduleName) {
             format: config.compilerOptions.esm ? 'esm' : 'cjs',
             filename,
             dev: config.compilerOptions.dev,
-            sveltePath: config.moduleOptions ? 'svelte' : config.compilerOptions.sveltePath // sveltePath is handled by svbuild
+            sveltePath: config.moduleOptions ? 'svelte' : config.compilerOptions.sveltePath,
+            ...(config.compilerOptions.other || {})
         });
     }
     catch (err) {

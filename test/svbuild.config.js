@@ -8,7 +8,10 @@ const config = {
   compilerOptions: {
     esm: true,
     dev: true,
-    sveltePath: './out/m/svelte'
+    sveltePath: './out/m/svelte',
+    other: {
+      cssHash: ({ css, hash, name }) => `${name}_${hash(css)}`
+    }
   },
   preprocess: sveltePreprocess({
     typescript: {}

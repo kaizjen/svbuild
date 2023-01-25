@@ -5,23 +5,25 @@ import { PreprocessorGroup } from "svelte/types/compiler/preprocess"
  */
 export type Config = {
   /** Path to source directory with svelte code */
-  src: string,
+  src: string
   /** Path to output directory */
-  out: string,
+  out: string
   /** Svelte compiler options */
   compilerOptions?: {
     /** Whether to generate code with ES6 imports and exports. Note that svbuild doesn't provide a `require()` funtion! */
-    esm?: boolean,
+    esm?: boolean
     /** Developer mode */
-    dev?: boolean,
+    dev?: boolean
     /** Path to the svelte module. Ignored if `moduleOptions.buildSvelte` is `true` */
-    sveltePath?: string,
+    sveltePath?: string
     /** Whether to set accessors on components' states */
-    accessors?: boolean,
+    accessors?: boolean
     /** Tells the compiler that you promise not to mutate any objects. This allows it to be less conservative about checking whether values have changed. */
-    immutable?: boolean,
+    immutable?: boolean
     /** A number that tells Svelte to break the loop if it blocks the thread for more than `loopGuardTimeout` ms. This is useful to prevent infinite loops. Only available when `dev: true` */
     loopGuardTimeout?: number
+    /** Other compiler options that will be directly passed to the svelte compiler, [more info](https://svelte.dev/docs#compile-time-svelte-compile) */
+    other?: object
   },
   /** Preprocessors allow for integration of different languages and features into svelte. */
   preprocess?: PreprocessorGroup | PreprocessorGroup[]
